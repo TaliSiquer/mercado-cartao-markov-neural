@@ -1,0 +1,61 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.DS_Store
+
+# Credenciais
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+*.pem
+*.key
+
+# Backups
+backups_integracao_modelo4E/
+backups_previsoes/
+**/backups_previsoes/
+
+# Evidências e resultados gerados
+evidencias_modelo4E/
+outputs_modelo4_final/
+logs_pipeline/
+*.log
+
+# Dados locais
+dataset_model_ready.csv
+Mercado_de_Cartao/data/
+
+# Arquivos temporários
+*.swp
+*.swo
+*.bak
+*.lock
+*.tmp
+*.temp
+
+# Backups adicionais
+backups_*/
+*_backup_*
+*_pre_etapa*
+
+# Caches
+cache/
+cache_*/
+__pycache__/
+
+# Resultados de experimentos
+outputs_*/
+
+# Dados de pesquisa
+*.csv
+*.xlsx
+*.xls
+
+# Exceções para dados de demonstração
+!examples/*.csv
+!tests/fixtures/*.csv
