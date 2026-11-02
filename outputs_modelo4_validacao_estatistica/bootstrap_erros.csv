@@ -1,0 +1,3 @@
+comparacao,ganho_medio,ic_95_inferior,ic_95_superior,trimestres_com_ganho
+Hibrido vs Persistencia,0.1575840243090454,-0.0466012381057791,0.3520751705630435,8
+Hibrido vs MLP,0.05494260321872086,-0.14274799540029726,0.2378286621192359,8

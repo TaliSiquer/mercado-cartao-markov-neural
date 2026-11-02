@@ -1,0 +1,5 @@
+modelo,observacoes,primeiro_trimestre,ultimo_trimestre,numero_parametros,loglik,AIC,BIC,convergiu,avisos
+3C_referencia,56,2012Q3,2026Q2,12,-35.965849871293614,95.93169974258723,120.23592003140902,True,Invalid regime transition probabilities estimated in EM iteration; probabilities have been re-scaled to continue estimation.
+3D_A_incerteza,56,2012Q3,2026Q2,13,-31.77459781716647,89.54919563433293,115.87876761388989,True,Invalid regime transition probabilities estimated in EM iteration; probabilities have been re-scaled to continue estimation.
+3D_B_eleicoes,56,2012Q3,2026Q2,13,-34.74822013011743,95.49644026023486,121.82601223979181,True,Invalid regime transition probabilities estimated in EM iteration; probabilities have been re-scaled to continue estimation.
+3D_C_completo,56,2012Q3,2026Q2,14,-35.10087992627682,98.20175985255364,126.55668352284573,True,Invalid regime transition probabilities estimated in EM iteration; probabilities have been re-scaled to continue estimation.

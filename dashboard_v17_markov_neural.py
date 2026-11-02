@@ -29,10 +29,8 @@ st.set_page_config(
 )
 
 
+# Raiz do repositório: funciona no Mac e no Streamlit Cloud
 PROJECT_ROOT = Path(__file__).resolve().parent
-
-if not (PROJECT_ROOT / "outputs_base_oficial").exists():
-    PROJECT_ROOT = PROJECT_ROOT.parent
 
 BASE_DIR = Path(__file__).resolve().parent
 # Diretório oficial dos dados publicados
