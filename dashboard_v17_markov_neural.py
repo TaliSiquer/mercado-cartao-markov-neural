@@ -891,7 +891,7 @@ def importar_snapshot_4e(arquivo, historico):
         existentes.add(novo["id_previsao"])
         chaves_existentes.add(chave)
 
-    if entradas:
+    if entradas and os.environ.get("DASHBOARD_READ_ONLY") != "1":
         historico = pd.concat(
             [historico, pd.DataFrame(entradas)],
             ignore_index=True
@@ -971,7 +971,7 @@ def atualizar_realizados_automaticamente(historico, base_trimestral):
             + " | Realizado importado automaticamente da base trimestral local; publicação e definição devem ser auditadas."
         ).strip()
         qtd += 1
-    if qtd:
+    if qtd and os.environ.get("DASHBOARD_READ_ONLY") != "1":
         salvar_historico_v13(atualizado)
     return atualizado, qtd
 
