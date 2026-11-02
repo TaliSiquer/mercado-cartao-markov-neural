@@ -1,0 +1,14 @@
+metrica,nome_metrica,ultimo_periodo,ultimo_valor,frequencia,status
+juros_cartao_pf_aa_pct,Juros do cartão PF,2026-09,100.28,mensal,Atualizado
+spread_cartao_pf,Spread do cartão PF,2026-09,87.32,mensal,Atualizado
+inadimplencia_90d_pct,Inadimplência > 90 dias,2026-09,4.98,mensal,Atualizado
+saldo_cartao_pf_total_mr,Saldo total cartão PF,2026-09,741557.0,mensal,Atualizado
+prop_rotativo,Proporção do rotativo,2026-09,0.1318307291280373,mensal,Atualizado
+selic_am_pct,Selic,2026-09,1.08,mensal,Atualizado
+hhi_credito_0_1,HHI do crédito,2026Q2,0.0948280160901528,trimestral,1 período de defasagem
+cr5_credito,CR5 do crédito,2026Q2,0.6469129751990856,trimestral,1 período de defasagem
+share_fintechs,Participação das fintechs,2025Q4,0.0438364581743574,trimestral,3 períodos de defasagem
+share_bancos_tradicionais,Participação dos bancos tradicionais,2025Q4,0.6504944073479841,trimestral,3 períodos de defasagem
+comprometimento_renda_pct,Comprometimento de renda,2026-08,28.26,mensal,1 período de defasagem
+taxa_desocupacao_trimestral_pct,Taxa de desocupação,2026Q2,5.4,trimestral,1 período de defasagem
+rendimento_medio_real_brl,Rendimento médio real,2026Q2,3657.0,trimestral,1 período de defasagem

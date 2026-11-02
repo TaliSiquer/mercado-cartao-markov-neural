@@ -1,0 +1,14 @@
+metrica,nome_metrica,valor,periodo_fonte,data_fonte,frequencia,formato,data_atualizacao_pipeline
+juros_cartao_pf_aa_pct,Juros do cartão PF,100.28,2026-09,2026-09-01,mensal,percentual,2026-11-02
+spread_cartao_pf,Spread do cartão PF,87.32,2026-09,2026-09-01,mensal,percentual,2026-11-02
+inadimplencia_90d_pct,Inadimplência > 90 dias,4.98,2026-09,2026-09-01,mensal,percentual,2026-11-02
+saldo_cartao_pf_total_mr,Saldo total cartão PF,741557.0,2026-09,2026-09-01,mensal,numero,2026-11-02
+prop_rotativo,Proporção do rotativo,0.1318307291280373,2026-09,2026-09-01,mensal,proporcao,2026-11-02
+selic_am_pct,Selic,1.08,2026-09,2026-09-01,mensal,percentual,2026-11-02
+hhi_credito_0_1,HHI do crédito,0.0948280160901528,2026Q2,2026-06-30,trimestral,decimal,2026-11-02
+cr5_credito,CR5 do crédito,0.6469129751990856,2026Q2,2026-06-30,trimestral,proporcao,2026-11-02
+share_fintechs,Participação das fintechs,0.0438364581743574,2025Q4,2025-12-31,trimestral,proporcao,2026-11-02
+share_bancos_tradicionais,Participação dos bancos tradicionais,0.6504944073479841,2025Q4,2025-12-31,trimestral,proporcao,2026-11-02
+comprometimento_renda_pct,Comprometimento de renda,28.26,2026-08,2026-08-01,mensal,percentual,2026-11-02
+taxa_desocupacao_trimestral_pct,Taxa de desocupação,5.4,2026Q2,2026-06-30,trimestral,percentual,2026-11-02
+rendimento_medio_real_brl,Rendimento médio real,3657.0,2026Q2,2026-06-30,trimestral,moeda,2026-11-02

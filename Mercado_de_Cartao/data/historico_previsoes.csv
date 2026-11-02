@@ -1,0 +1,3 @@
+data_execucao,origem_previsao,periodo_previsto,tipo_previsao,metrica,valor_previsto,modelo,ultimo_valor_disponivel,periodo_fonte,valor_realizado,erro
+2026-09-07T19:50:03,2026Q2,2026Q3,historica_recuperada,juros_cartao_pf_aa_pct,92.97963244578597,mlp,96.05666666666669,2026Q2,,
+2026-09-07T19:50:03,2026Q2,2026Q3,historica_recuperada,inadimplencia_90d_pct,4.67614892089445,ridge,4.653333333333333,2026Q2,,
