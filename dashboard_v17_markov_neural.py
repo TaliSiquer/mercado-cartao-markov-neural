@@ -755,7 +755,12 @@ def ler_historico_v13():
 
 
 def salvar_historico_v13(df):
-    """Não modifica registros anteriores; cria backup e usa substituição atômica."""
+    """Preserva o histórico local e bloqueia gravações na versão publicada."""
+    if os.environ.get("DASHBOARD_READ_ONLY") == "1":
+        raise PermissionError(
+            "Gravação do histórico bloqueada: dashboard em modo somente leitura."
+        )
+    # Preserva registros anteriores com backup e substituição atômica.
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     if ARQ_HISTORICO_V13.exists():
         backup = DATA_DIR / "backups_previsoes"
