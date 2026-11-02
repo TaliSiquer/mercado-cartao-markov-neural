@@ -36,7 +36,7 @@ if not (PROJECT_ROOT / "outputs_base_oficial").exists():
 
 BASE_DIR = Path(__file__).resolve().parent
 # Diretório oficial dos dados publicados
-DATA_DIR = PROJECT_ROOT / "Mercado_de_Cartao" / "data"
+DATA_DIR = Path(__file__).resolve().parent / "Mercado_de_Cartao" / "data"
 
 ARQ_MENSAL = DATA_DIR / "metricas_master_mensal.csv"
 ARQ_TRIMESTRAL = DATA_DIR / "metricas_master_trimestral.csv"
