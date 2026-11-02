@@ -1,0 +1,21 @@
+{
+  "modelo": "modelo2C",
+  "data_exportacao": "2026-11-01T02:50:26.343330",
+  "n_observacoes": 40,
+  "data_inicial": "2015-09-01",
+  "data_final": "2025-09-01",
+  "r2": 0.7977453606343453,
+  "r2_ajustado": 0.7808908073538741,
+  "aic": 275.23070477404985,
+  "bic": 281.9862225905056,
+  "metodo": "OLS",
+  "cov_type": "HAC",
+  "cov_kwds": "{'use_t': False, 'adjust_df': False, 'maxlags': 1, 'weights_func': <function weights_bartlett at 0x1162562a0>, 'use_correction': False, 'description': 'Standard Errors are heteroscedasticity and autocorrelation robust (HAC) using 1 lags and without small sample correction'}",
+  "variavel_dependente": "spread_cartao_pf",
+  "variaveis_explicativas": [
+    "const",
+    "spread_lag1",
+    "inadimplencia_90d_pct",
+    "hhi_credito_0_1"
+  ]
+}

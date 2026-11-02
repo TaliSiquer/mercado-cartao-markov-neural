@@ -1,0 +1,22 @@
+{
+  "modelo": "modelo2A",
+  "data_exportacao": "2026-11-01T02:50:24.042965",
+  "n_observacoes": 42,
+  "data_inicial": "2015-03-01",
+  "data_final": "2025-09-01",
+  "r2": 0.680580448830188,
+  "r2_ajustado": 0.6460486054604786,
+  "aic": 308.06891177367703,
+  "bic": 316.7572598650939,
+  "metodo": "OLS",
+  "cov_type": "HAC",
+  "cov_kwds": "{'use_t': False, 'adjust_df': False, 'maxlags': 1, 'weights_func': <function weights_bartlett at 0x11884e2a0>, 'use_correction': False, 'description': 'Standard Errors are heteroscedasticity and autocorrelation robust (HAC) using 1 lags and without small sample correction'}",
+  "variavel_dependente": "spread_cartao_pf",
+  "variaveis_explicativas": [
+    "const",
+    "inadimplencia_90d_pct",
+    "hhi_credito_0_1",
+    "share_fintechs",
+    "stress_familias"
+  ]
+}
