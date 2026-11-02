@@ -1,0 +1,50 @@
+name: Atualizacao mensal - Mercado de Cartoes
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verificar-ambiente:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Baixar repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Verificar arquivos obrigatorios
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          arquivos = [
+              "pipeline_corrigida_ordem_v1.py",
+              "DataSet/bacen.py",
+              "DataSet/ibge.py",
+              "Mercado_de_Cartao/pipeline_mensal.py",
+              "modelo4E_metricas.py",
+              "bcb_creditcard_competition_dataset_v4.csv",
+              "ibge_macro_dataset.csv",
+              "DataSet/entrada_saida_instituicoes.csv",
+          ]
+
+          ausentes = [a for a in arquivos if not Path(a).is_file()]
+
+          if ausentes:
+              raise SystemExit(f"Arquivos ausentes: {ausentes}")
+
+          print("Ambiente inicial validado.")
+          PY
