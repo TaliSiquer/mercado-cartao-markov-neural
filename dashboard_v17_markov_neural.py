@@ -35,10 +35,8 @@ if not (PROJECT_ROOT / "outputs_base_oficial").exists():
     PROJECT_ROOT = PROJECT_ROOT.parent
 
 BASE_DIR = Path(__file__).resolve().parent
-DATA_DIR = BASE_DIR / "data"
-
-if not DATA_DIR.exists():
-    DATA_DIR = PROJECT_ROOT / "Mercado_de_Cartao" / "data"
+# Diretório oficial dos dados publicados
+DATA_DIR = PROJECT_ROOT / "Mercado_de_Cartao" / "data"
 
 ARQ_MENSAL = DATA_DIR / "metricas_master_mensal.csv"
 ARQ_TRIMESTRAL = DATA_DIR / "metricas_master_trimestral.csv"
@@ -143,6 +141,14 @@ def ler_csv(path: Path) -> pd.DataFrame:
 
 mensal = ler_csv(ARQ_MENSAL)
 trimestral = ler_csv(ARQ_TRIMESTRAL)
+
+if mensal.empty or trimestral.empty:
+    st.error(
+        "As bases principais não foram carregadas. "
+        f"Mensal: {ARQ_MENSAL} | "
+        f"Trimestral: {ARQ_TRIMESTRAL}"
+    )
+    st.stop()
 snapshot = ler_csv(ARQ_SNAPSHOT)
 status = ler_csv(ARQ_STATUS)
 correlacoes = ler_csv(ARQ_CORRELACOES)
@@ -1322,10 +1328,24 @@ if pagina == "Visão Geral":
     e1,e2=st.columns([3.5,1.45],vertical_alignment="bottom")
     with e1:
         st.markdown('<div class="section-title">Evolução dos principais indicadores</div>', unsafe_allow_html=True)
-    min_data=mensal[COL_DATA_MENSAL].min().date() if (not mensal.empty and COL_DATA_MENSAL) else None
-    max_data=mensal[COL_DATA_MENSAL].max().date() if (not mensal.empty and COL_DATA_MENSAL) else None
+    datas_validas = pd.to_datetime(
+        mensal[COL_DATA_MENSAL], errors="coerce"
+    ).dropna() if COL_DATA_MENSAL in mensal.columns else pd.Series(dtype="datetime64[ns]")
+
+    if datas_validas.empty:
+        st.error("Não há datas válidas na base mensal.")
+        st.stop()
+
+    min_data = datas_validas.min().date()
+    max_data = datas_validas.max().date()
+
     with e2:
-        periodo_sel=st.date_input("Período", value=(min_data,max_data), min_value=min_data, max_value=max_data)
+        periodo_sel = st.date_input(
+            "Período",
+            value=(min_data, max_data),
+            min_value=min_data,
+            max_value=max_data,
+        )
     if isinstance(periodo_sel,(list,tuple)) and len(periodo_sel)==2:
         inicio_sel,fim_sel=periodo_sel
     else:
