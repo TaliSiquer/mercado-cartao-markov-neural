@@ -25,26 +25,51 @@ st.set_page_config(
     page_title="Mercado Brasileiro de Cartão de Crédito PF",
     page_icon="💳",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="auto",
 )
 
-
-# Raiz do repositório: funciona no Mac e no Streamlit Cloud
-PROJECT_ROOT = Path(__file__).resolve().parent
-
 BASE_DIR = Path(__file__).resolve().parent
-# Diretório oficial dos dados publicados
-DATA_DIR = Path(__file__).resolve().parent / "Mercado_de_Cartao" / "data"
 
-ARQ_MENSAL = DATA_DIR / "metricas_master_mensal.csv"
-ARQ_TRIMESTRAL = DATA_DIR / "metricas_master_trimestral.csv"
-ARQ_SNAPSHOT = DATA_DIR / "metricas_dashboard.csv"
-ARQ_STATUS = DATA_DIR / "status_atualizacao.csv"
-ARQ_CORRELACOES = DATA_DIR / "correlacoes_dashboard.csv"
-ARQ_PERIODOS = DATA_DIR / "comparacao_pre_pandemia_pos.csv"
-ARQ_PREVISOES = DATA_DIR / "historico_previsoes.csv"
-ARQ_DICIONARIO = DATA_DIR / "dicionario_metricas.csv"
-ARQ_HISTORICO_V13 = DATA_DIR / "historico_previsoes_v13.csv"
+# Localiza o projeto independentemente de o script estar na raiz,
+# em DataSet/ ou em Mercado_de_Cartao/. Não cria dados fictícios.
+def _localizar_raiz_projeto():
+    candidatos = [BASE_DIR, BASE_DIR.parent, BASE_DIR / "Mercado_de_Cartao",
+                  BASE_DIR.parent / "Mercado_de_Cartao"]
+    candidatos = list(dict.fromkeys(candidatos))
+    nomes = ("metricas_master_mensal.csv", "metricas_master_trimestral.csv")
+    for raiz in candidatos:
+        for pasta in (raiz / "data", raiz / "DataSet", raiz / "dataset", raiz):
+            if any((pasta / nome).is_file() for nome in nomes):
+                return raiz, pasta
+    # Sem dados: mantém caminho esperado e exibe diagnóstico no app.
+    return BASE_DIR.parent, BASE_DIR / "data"
+
+PROJECT_ROOT, DATA_DIR = _localizar_raiz_projeto()
+# Saídas econométricas ficam na raiz bcb_project, enquanto bases podem
+# estar em Mercado_de_Cartao/data. Não confundir raiz de dados com raiz de outputs.
+for _ancestor in (BASE_DIR, *BASE_DIR.parents):
+    if (_ancestor / "outputs_modelo4_variacao_juros").is_dir() or (_ancestor / "outputs_modelo3C_auditado").is_dir():
+        PROJECT_ROOT = _ancestor
+        break
+
+
+def _localizar_arquivo(nome):
+    for pasta in (DATA_DIR, PROJECT_ROOT / "data", PROJECT_ROOT / "DataSet",
+                  PROJECT_ROOT / "dataset", PROJECT_ROOT, BASE_DIR):
+        arquivo = pasta / nome
+        if arquivo.is_file():
+            return arquivo
+    return DATA_DIR / nome
+
+ARQ_MENSAL = _localizar_arquivo("metricas_master_mensal.csv")
+ARQ_TRIMESTRAL = _localizar_arquivo("metricas_master_trimestral.csv")
+ARQ_SNAPSHOT = _localizar_arquivo("metricas_dashboard.csv")
+ARQ_STATUS = _localizar_arquivo("status_atualizacao.csv")
+ARQ_CORRELACOES = _localizar_arquivo("correlacoes_dashboard.csv")
+ARQ_PERIODOS = _localizar_arquivo("comparacao_pre_pandemia_pos.csv")
+ARQ_PREVISOES = _localizar_arquivo("historico_previsoes.csv")
+ARQ_DICIONARIO = _localizar_arquivo("dicionario_metricas.csv")
+ARQ_HISTORICO_V13 = _localizar_arquivo("historico_previsoes_v13.csv")
 
 
 # ============================================================
@@ -106,6 +131,16 @@ st.markdown(
     .legend-dot {width:13px; height:13px; border-radius:50%; display:inline-block;}
     .legend-square {width:13px; height:13px; border-radius:3px; display:inline-block; background:rgba(203,67,149,.50); border:1px solid rgba(244,105,188,.45);}
     .source-foot {color:#8295a8; font-size:.68rem; text-align:right; margin-top:.5rem;}
+    @media (max-width: 768px) {
+      .block-container {padding: .8rem .65rem 2rem !important;}
+      .dashboard-title {font-size:1.65rem !important; line-height:1.15;}
+      [data-testid="stSidebar"] {min-width: min(85vw, 310px) !important; max-width:min(85vw,310px) !important;}
+      [data-testid="stSidebarCollapsedControl"],
+      [data-testid="stSidebarCollapseButton"],
+      [data-testid="stSidebarNavCollapseButton"] {display:flex !important; visibility:visible !important; opacity:1 !important; z-index:999999 !important;}
+      header[data-testid="stHeader"] {z-index:99999 !important;}
+      div[data-testid="stPlotlyChart"] {max-width:100%; overflow-x:auto;}
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -139,14 +174,6 @@ def ler_csv(path: Path) -> pd.DataFrame:
 
 mensal = ler_csv(ARQ_MENSAL)
 trimestral = ler_csv(ARQ_TRIMESTRAL)
-
-if mensal.empty or trimestral.empty:
-    st.error(
-        "As bases principais não foram carregadas. "
-        f"Mensal: {ARQ_MENSAL} | "
-        f"Trimestral: {ARQ_TRIMESTRAL}"
-    )
-    st.stop()
 snapshot = ler_csv(ARQ_SNAPSHOT)
 status = ler_csv(ARQ_STATUS)
 correlacoes = ler_csv(ARQ_CORRELACOES)
@@ -759,12 +786,7 @@ def ler_historico_v13():
 
 
 def salvar_historico_v13(df):
-    """Preserva o histórico local e bloqueia gravações na versão publicada."""
-    if os.environ.get("DASHBOARD_READ_ONLY") == "1":
-        raise PermissionError(
-            "Gravação do histórico bloqueada: dashboard em modo somente leitura."
-        )
-    # Preserva registros anteriores com backup e substituição atômica.
+    """Não modifica registros anteriores; cria backup e usa substituição atômica."""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     if ARQ_HISTORICO_V13.exists():
         backup = DATA_DIR / "backups_previsoes"
@@ -781,14 +803,10 @@ def salvar_historico_v13(df):
 
 
 def id_da_previsao(linha):
-    # Identificador independente do caminho do arquivo.
+    # Conteúdo e artefato de origem identificam um snapshot; reexecução não duplica.
     partes = [str(linha.get(k, "")) for k in [
-        "metrica",
-        "periodo_previsto",
-        "periodo_ultimo_dado",
-        "modelo",
-        "valor_previsto",
-        "versao_modelo",
+        "metrica", "periodo_previsto", "periodo_ultimo_dado", "modelo",
+        "valor_previsto", "origem", "versao_modelo",
     ]]
     return hashlib.sha256("|".join(partes).encode()).hexdigest()[:20]
 
@@ -796,112 +814,36 @@ def id_da_previsao(linha):
 def importar_snapshot_4e(arquivo, historico):
     if not arquivo.exists():
         return historico, 0
-
     origem_df = pd.read_csv(arquivo)
-
-    obrigatorias = [
-        "metrica",
-        "periodo_previsto",
-        "periodo_ultimo_dado",
-        "modelo_selecionado",
-        "previsao_selecionada",
-    ]
-
-    faltantes = [
-        coluna
-        for coluna in obrigatorias
-        if coluna not in origem_df.columns
-    ]
-
+    obrigatorias = ["metrica", "periodo_previsto", "periodo_ultimo_dado", "modelo_selecionado", "previsao_selecionada"]
+    faltantes = [c for c in obrigatorias if c not in origem_df.columns]
     if faltantes:
-        raise ValueError(
-            f"Colunas ausentes no Modelo 4E: {faltantes}"
-        )
-
-    def chave_semantica(registro):
-        valor = pd.to_numeric(
-            registro.get("valor_previsto"),
-            errors="coerce"
-        )
-
-        if pd.isna(valor):
-            return None
-
-        return (
-            str(registro.get("metrica", "")),
-            str(registro.get("periodo_previsto", "")),
-            str(registro.get("periodo_ultimo_dado", "")),
-            str(registro.get("modelo", "")),
-            float(valor),
-        )
-
-    existentes = set(
-        historico["id_previsao"]
-        .dropna()
-        .astype(str)
-    )
-
-    chaves_existentes = {
-        chave
-        for _, registro in historico.iterrows()
-        if (chave := chave_semantica(registro)) is not None
-    }
-
+        raise ValueError(f"Colunas ausentes no Modelo 4E: {faltantes}")
+    existentes = set(historico["id_previsao"].dropna().astype(str))
     entradas = []
-    data_registro = datetime.now(
-        timezone.utc
-    ).isoformat()
-
+    data_registro = datetime.now(timezone.utc).isoformat()
     for _, row in origem_df.iterrows():
-        previsto = pd.to_numeric(
-            row["previsao_selecionada"],
-            errors="coerce"
-        )
-
+        previsto = pd.to_numeric(row["previsao_selecionada"], errors="coerce")
         if pd.isna(previsto):
             continue
-
+        # Não inventar a data de emissão: trata-se de resultado de arquivo importado.
         novo = dict.fromkeys(CAMPOS_V13, pd.NA)
-
         novo.update({
-            "metrica": str(row["metrica"]),
-            "periodo_previsto": str(row["periodo_previsto"]),
+            "metrica": str(row["metrica"]), "periodo_previsto": str(row["periodo_previsto"]),
             "periodo_ultimo_dado": str(row["periodo_ultimo_dado"]),
-            "modelo": str(row["modelo_selecionado"]),
-            "valor_previsto": float(previsto),
-            "data_registro": data_registro,
-            "tipo_previsao": "importada_sem_emissao_comprovada",
-            "origem": str(arquivo),
+            "modelo": str(row["modelo_selecionado"]), "valor_previsto": float(previsto),
+            "data_registro": data_registro, "tipo_previsao": "importada_sem_emissao_comprovada",
+            "origem": str(arquivo.relative_to(BASE_DIR.parent)) if arquivo.is_relative_to(BASE_DIR.parent) else arquivo.name,
             "versao_modelo": "Modelo 4E — snapshot CSV",
-            "observacoes": (
-                "Data de geração original não comprovada. "
-                "Não classificar como previsão prospectiva auditada."
-            ),
+            "observacoes": "Data de geração original não comprovada. Não classificar como previsão prospectiva auditada.",
         })
-
-        chave = chave_semantica(novo)
-
-        # Evita reimportar a mesma previsão,
-        # independentemente do ID ou caminho da origem.
-        if chave in chaves_existentes:
-            continue
-
         novo["id_previsao"] = id_da_previsao(novo)
-
-        if novo["id_previsao"] in existentes:
-            continue
-
-        entradas.append(novo)
-        existentes.add(novo["id_previsao"])
-        chaves_existentes.add(chave)
-
-    if entradas and os.environ.get("DASHBOARD_READ_ONLY") != "1":
-        historico = pd.concat(
-            [historico, pd.DataFrame(entradas)],
-            ignore_index=True
-        )
+        if novo["id_previsao"] not in existentes:
+            entradas.append(novo)
+            existentes.add(novo["id_previsao"])
+    if entradas:
+        historico = pd.concat([historico, pd.DataFrame(entradas)], ignore_index=True)
         salvar_historico_v13(historico)
-
     return historico, len(entradas)
 
 
@@ -948,6 +890,13 @@ def atualizar_realizados_automaticamente(historico, base_trimestral):
     if dados.empty:
         return historico, 0
     atualizado = historico.copy()
+    # CSVs legados podem inferir colunas textuais como float quando vazias.
+    # Tipagem explícita evita erro ao registrar a proveniência do realizado.
+    for _col in ("fonte_realizado", "data_publicacao", "data_conferencia", "observacoes"):
+        if _col not in atualizado.columns:
+            atualizado[_col] = pd.Series(pd.NA, index=atualizado.index, dtype="object")
+        else:
+            atualizado[_col] = atualizado[_col].astype("object")
     qtd = 0
     for i, reg in atualizado.iterrows():
         met = str(reg.get("metrica", ""))
@@ -975,7 +924,7 @@ def atualizar_realizados_automaticamente(historico, base_trimestral):
             + " | Realizado importado automaticamente da base trimestral local; publicação e definição devem ser auditadas."
         ).strip()
         qtd += 1
-    if qtd and os.environ.get("DASHBOARD_READ_ONLY") != "1":
+    if qtd:
         salvar_historico_v13(atualizado)
     return atualizado, qtd
 
@@ -988,91 +937,20 @@ def painel_historico_v13(arquivo_futuro):
         "Não há digitação manual."
     )
     hist = ler_historico_v13()
-    # ETAPA 174 — Proteção da integridade histórica.
-    # O painel é somente de leitura: não importa previsões nem
-    # concilia realizados automaticamente durante sua renderização.
-    # Qualquer atualização do histórico exige processo auditado separado.
-    st.caption(
-        "Histórico em modo somente leitura. "
-        "Importações e conciliações automáticas estão desativadas."
-    )
+    try:
+        hist, qtd_novas = importar_snapshot_4e(arquivo_futuro, hist)
+        hist, qtd_realizados = atualizar_realizados_automaticamente(hist, trimestral)
+        if qtd_novas or qtd_realizados:
+            st.success(f"Sincronização: {qtd_novas} previsões novas; {qtd_realizados} resultados conciliados.")
+    except Exception as exc:
+        st.error(f"Não foi possível sincronizar previsões ou realizados: {exc}")
     if hist.empty:
         st.info("Nenhuma previsão disponível no CSV do Modelo 4E. Execute primeiro o pipeline preditivo.")
         return
     hist["valor_previsto"] = pd.to_numeric(hist["valor_previsto"], errors="coerce")
     hist["valor_realizado"] = pd.to_numeric(hist["valor_realizado"], errors="coerce")
-
-    # ETAPA 199 — Realizados observados apenas para visualização.
-    # Não altera o CSV histórico nem comprova emissão prospectiva.
-    hist["_realizado_observado_199"] = pd.NA
-
-    if not trimestral.empty:
-        _data_199 = detectar_coluna_data(trimestral)
-
-        if _data_199:
-            _base_199 = trimestral.copy()
-            _base_199["_trimestre_199"] = (
-                pd.to_datetime(_base_199[_data_199], errors="coerce")
-                .dt.to_period("Q")
-                .astype("string")
-            )
-
-            for _metrica_199 in [
-                "juros_cartao_pf_aa_pct",
-                "inadimplencia_90d_pct",
-            ]:
-                if _metrica_199 not in _base_199.columns:
-                    continue
-
-                _serie_199 = _base_199[
-                    ["_trimestre_199", _metrica_199]
-                ].copy()
-
-                _serie_199[_metrica_199] = pd.to_numeric(
-                    _serie_199[_metrica_199],
-                    errors="coerce",
-                )
-
-                _serie_199 = _serie_199.dropna()
-
-                # Aceitar somente um registro por trimestre.
-                _contagens_199 = _serie_199.groupby(
-                    "_trimestre_199"
-                ).size()
-
-                _validos_199 = _contagens_199[
-                    _contagens_199 == 1
-                ].index
-
-                _serie_199 = _serie_199[
-                    _serie_199["_trimestre_199"].isin(_validos_199)
-                ]
-
-                _mapa_199 = dict(
-                    zip(
-                        _serie_199["_trimestre_199"].astype(str),
-                        _serie_199[_metrica_199],
-                    )
-                )
-
-                _mascara_199 = (
-                    hist["metrica"].eq(_metrica_199)
-                    & hist["valor_realizado"].isna()
-                )
-
-                hist.loc[
-                    _mascara_199,
-                    "_realizado_observado_199",
-                ] = (
-                    hist.loc[_mascara_199, "periodo_previsto"]
-                    .astype(str)
-                    .map(_mapa_199)
-                )
-
     hist["status"] = hist.apply(status_v13, axis=1)
-
-    # Não calcular erros sem comprovação temporal da previsão.
-    hist["erro_absoluto"] = pd.NA
+    hist["erro_absoluto"] = (hist["valor_realizado"] - hist["valor_previsto"]).abs()
     metricas = [m for m in ["juros_cartao_pf_aa_pct", "inadimplencia_90d_pct", "hhi_credito_0_1", "cr5_credito"] if m in hist["metrica"].values or m in trimestral.columns]
     metricas += [m for m in sorted(hist["metrica"].dropna().unique()) if m not in metricas]
     periodos = sorted(hist["periodo_previsto"].dropna().unique(), reverse=True)
@@ -1157,100 +1035,20 @@ def painel_historico_v13(arquivo_futuro):
     if periodo != "Todos":
         vis = vis[vis["periodo_previsto"] == periodo]
     tabela = vis[["periodo_previsto", "metrica", "modelo", "valor_previsto", "valor_realizado", "erro_absoluto", "status", "tipo_previsao", "fonte_realizado"]].copy()
-
-    # Exibição separada do registro histórico.
-    _observado_199 = pd.to_numeric(
-        vis["_realizado_observado_199"],
-        errors="coerce",
-    )
-
-    _sem_realizado_199 = tabela["valor_realizado"].isna()
-    _mostrar_199 = _sem_realizado_199 & _observado_199.notna()
-
-    tabela.loc[
-        _mostrar_199,
-        "valor_realizado",
-    ] = _observado_199.loc[_mostrar_199]
-
-    tabela.loc[
-        _mostrar_199,
-        "status",
-    ] = "Realizado disponível — previsão em auditoria temporal"
-
-    # ETAPA 217 — A coluna pode ter sido inferida como float64
-    # quando o histórico contém apenas valores ausentes.
-    # Conversão restrita à tabela de apresentação.
-    tabela["fonte_realizado"] = tabela["fonte_realizado"].astype("string")
-
-    tabela.loc[
-        _mostrar_199,
-        "fonte_realizado",
-    ] = "Base trimestral consolidada (somente visualização)"
-    # ETAPA 214 — Erro absoluto descritivo, somente em memória.
-    # Não altera os arquivos históricos e não valida emissão prospectiva.
-    _previsto_214 = pd.to_numeric(
-        tabela["valor_previsto"], errors="coerce"
-    )
-    _realizado_214 = pd.to_numeric(
-        tabela["valor_realizado"], errors="coerce"
-    )
-
-    tabela["erro_absoluto"] = (
-        _realizado_214 - _previsto_214
-    ).abs()
-
-    tabela["erro_absoluto"] = [
-        (
-            f"{e*100:.4f} p.p."
-            if m == "cr5_credito"
-            else f"{e:.6f}"
-            if m == "hhi_credito_0_1"
-            else f"{e:.6f} p.p."
-        )
-        if pd.notna(e) else "—"
-        for m, e in zip(
-            tabela["metrica"],
-            tabela["erro_absoluto"],
-        )
-    ]
-
     for coluna in ["valor_previsto", "valor_realizado"]:
-        tabela[coluna] = [
-            formatar_valor_v13(m, v)
-            for m, v in zip(
-                tabela["metrica"],
-                tabela[coluna],
-            )
-        ]
-    # ETAPA 219 — Rótulos de apresentação, sem modificar o histórico.
-    tabela["tipo_previsao"] = tabela["tipo_previsao"].replace({
-        "importada_sem_emissao_comprovada":
-            "Em auditoria — emissão original não comprovada",
-        "reconstrucao_historica":
-            "Reconstrução histórica",
-        "prospectiva_pendente_auditoria":
-            "Prospectiva — auditoria pendente",
-        "prospectiva_auditada":
-            "Prospectiva auditada",
-    })
-
-    tabela["fonte_realizado"] = (
-        tabela["fonte_realizado"]
-        .astype("string")
-        .replace({"None": pd.NA, "nan": pd.NA, "": pd.NA})
-        .fillna("Aguardando validação")
-    )
-
-    tabela.columns = ["Trimestre", "Indicador", "Modelo", "Previsto", "Realizado", "Erro absoluto descritivo", "Status", "Origem da previsão", "Fonte do realizado"]
+        tabela[coluna] = [formatar_valor_v13(m, v) for m, v in zip(vis["metrica"], vis[coluna])]
+    tabela["erro_absoluto"] = [
+        (f"{e*100:.2f} p.p." if m == "cr5_credito" else f"{e:.4f}" if m == "hhi_credito_0_1" else f"{e:.2f} p.p.") if pd.notna(e) else "—"
+        for m, e in zip(vis["metrica"], vis["erro_absoluto"])
+    ]
+    tabela.columns = ["Trimestre", "Indicador", "Modelo", "Previsto", "Realizado", "Erro absoluto", "Status", "Origem da previsão", "Fonte do realizado"]
     st.dataframe(tabela, width="stretch", hide_index=True)
     st.download_button(
         "⬇️ Exportar histórico completo (CSV)",
         hist.drop(columns=["status", "erro_absoluto"]).to_csv(index=False).encode("utf-8-sig"),
         file_name="historico_previsoes_v13.csv", mime="text/csv", key="exportar_hist_v15",
     )
-    # ETAPA 199 — Avaliação prospectiva bloqueada até auditoria
-    # da data original de emissão das previsões.
-    avaliados = hist.iloc[0:0].copy()
+    avaliados = hist[hist["valor_realizado"].notna() & hist["valor_previsto"].notna()].copy()
     if not avaliados.empty:
         avaliados["erro"] = avaliados["valor_realizado"] - avaliados["valor_previsto"]
         qualidade = avaliados.groupby(["metrica", "modelo"]).agg(
@@ -1261,7 +1059,7 @@ def painel_historico_v13(arquivo_futuro):
         st.markdown("#### Erro acumulado por modelo")
         st.dataframe(qualidade.round(6), hide_index=True, width="stretch")
     else:
-        st.info("Os erros absolutos descritivos são exibidos quando existem valores realizados disponíveis. MAE e RMSE prospectivos permanecem bloqueados até a validação temporal das previsões.")
+        st.info("As métricas de erro aparecerão após a chegada de valores realizados.")
     st.warning(
         "A sincronização lê os CSVs locais: para buscar publicações novas, execute ou automatize o pipeline de coleta. "
         "HHI e CR5 permanecem em auditoria temporal e não são conciliados automaticamente. "
@@ -1273,21 +1071,34 @@ def painel_historico_v13(arquivo_futuro):
 # CABEÇALHO E MENU
 # ============================================================
 
-pagina = st.sidebar.radio(
-    "Navegação",
-    [
-        "Visão Geral",
-        "Histórico",
-        "Determinantes do Mercado",
-        "Correlações",
-        "Previsão Markov-Neural",
-        "Validação Experimental v17",
-        "Questões de Pesquisa",
-        "Dicionário",
-    ],
-)
+PAGINAS = [
+    "Visão Geral", "Histórico", "Determinantes do Mercado", "Correlações",
+    "Previsão Markov-Neural", "Validação Experimental v16",
+    "Questões de Pesquisa", "Dicionário",
+]
+if "nav_sidebar" not in st.session_state:
+    st.session_state.nav_sidebar = PAGINAS[0]
+if "nav_rapida" not in st.session_state:
+    st.session_state.nav_rapida = st.session_state.nav_sidebar
+
+def _sincronizar_sidebar():
+    st.session_state.nav_rapida = st.session_state.nav_sidebar
+
+def _sincronizar_rapida():
+    st.session_state.nav_sidebar = st.session_state.nav_rapida
+
+# Navegação alternativa permanece acessível mesmo com a barra lateral fechada.
+with st.expander("☰ Menu / Navegação rápida (inclusive no celular)", expanded=False):
+    st.selectbox("Ir para a seção", PAGINAS, key="nav_rapida", on_change=_sincronizar_rapida)
+pagina = st.sidebar.radio("Navegação", PAGINAS, key="nav_sidebar", on_change=_sincronizar_sidebar)
 
 st.sidebar.markdown("---")
+if mensal.empty or trimestral.empty:
+    with st.sidebar.expander("⚠️ Diagnóstico das bases", expanded=True):
+        st.caption(f"Pasta de dados: {DATA_DIR}")
+        for nome, caminho in [("Mensal", ARQ_MENSAL), ("Trimestral", ARQ_TRIMESTRAL)]:
+            st.write(f"{nome}: {'encontrado' if caminho.is_file() else 'AUSENTE'} — {caminho.name}")
+        st.info("Os dados originais não foram apagados nem substituídos. Confira os caminhos acima.")
 if not mensal.empty and COL_DATA_MENSAL:
     ultima_data = mensal[COL_DATA_MENSAL].max()
     if pd.notna(ultima_data):
@@ -1326,24 +1137,16 @@ if pagina == "Visão Geral":
     e1,e2=st.columns([3.5,1.45],vertical_alignment="bottom")
     with e1:
         st.markdown('<div class="section-title">Evolução dos principais indicadores</div>', unsafe_allow_html=True)
-    datas_validas = pd.to_datetime(
-        mensal[COL_DATA_MENSAL], errors="coerce"
-    ).dropna() if COL_DATA_MENSAL in mensal.columns else pd.Series(dtype="datetime64[ns]")
-
-    if datas_validas.empty:
-        st.error("Não há datas válidas na base mensal.")
-        st.stop()
-
-    min_data = datas_validas.min().date()
-    max_data = datas_validas.max().date()
-
+    datas_validas = (pd.to_datetime(mensal[COL_DATA_MENSAL], errors="coerce").dropna()
+                    if not mensal.empty and COL_DATA_MENSAL else pd.Series(dtype="datetime64[ns]"))
+    min_data = datas_validas.min().date() if not datas_validas.empty else None
+    max_data = datas_validas.max().date() if not datas_validas.empty else None
     with e2:
-        periodo_sel = st.date_input(
-            "Período",
-            value=(min_data, max_data),
-            min_value=min_data,
-            max_value=max_data,
-        )
+        if min_data is not None and max_data is not None:
+            periodo_sel=st.date_input("Período", value=(min_data,max_data), min_value=min_data, max_value=max_data)
+        else:
+            periodo_sel=None
+            st.warning("Sem datas válidas: verifique os arquivos de dados.")
     if isinstance(periodo_sel,(list,tuple)) and len(periodo_sel)==2:
         inicio_sel,fim_sel=periodo_sel
     else:
@@ -1873,7 +1676,7 @@ elif pagina == "Previsão Markov-Neural":
 # 11. RESULTADOS DA PESQUISA
 # ============================================================
 
-elif pagina == "Validação Experimental v17":
+elif pagina == "Validação Experimental v16":
     st.subheader("Validação experimental — Markov-Neural")
     st.caption("Avaliação retrospectiva walk-forward: 2022Q4–2026Q2, 15 previsões. Resultados de pesquisa, não projeções futuras nem evidência causal.")
 
@@ -2189,150 +1992,6 @@ elif pagina == "Questões de Pesquisa":
 
             disponiveis_2.append(nome_modelo)
 
-
-        # =====================================================
-        # MODELOS 2 — RESULTADOS OFICIAIS V1
-        # =====================================================
-
-        st.markdown("### Resultados oficiais — Modelos 2B, 2C e 2D")
-
-        st.caption(
-            "Base oficial V1 | Amostra trimestral comum: "
-            "2015Q3–2025Q4 | 42 observações | "
-            "Regressões OLS com erros-padrão HAC/Newey-West. "
-            "Resultados associativos, sem interpretação causal."
-        )
-
-        pasta_oficial_2 = (
-            Path(__file__).resolve().parent
-            / "outputs_modelos2_oficial_v1"
-        )
-
-        resumo_oficial_2 = pasta_oficial_2 / "resumo_modelos.csv"
-        coef_oficial_2 = pasta_oficial_2 / "coeficientes_hac.csv"
-        ajustes_oficial_2 = pasta_oficial_2 / "ajustes_em_amostra.csv"
-
-        if all(
-            p.exists()
-            for p in [
-                resumo_oficial_2,
-                coef_oficial_2,
-                ajustes_oficial_2,
-            ]
-        ):
-            resumo_2_oficial = pd.read_csv(resumo_oficial_2)
-            coef_2_oficial = pd.read_csv(coef_oficial_2)
-            ajustes_2_oficial = pd.read_csv(ajustes_oficial_2)
-
-            st.markdown("#### Comparação oficial das especificações")
-
-            tabela_resumo_2 = resumo_2_oficial.rename(columns={
-                "modelo": "Modelo",
-                "n": "N",
-                "inicio": "Início",
-                "fim": "Fim",
-                "r2": "R²",
-                "r2_ajustado": "R² ajustado",
-                "aic": "AIC",
-                "bic": "BIC",
-                "durbin_watson": "Durbin-Watson",
-            })
-
-            st.dataframe(
-                tabela_resumo_2.round(4),
-                hide_index=True,
-                use_container_width=True,
-            )
-
-            selecionado_oficial_2 = st.selectbox(
-                "Especificação oficial",
-                resumo_2_oficial["modelo"].tolist(),
-                key="modelo2_oficial_v1_selecao",
-            )
-
-            st.markdown("#### Coeficientes robustos HAC")
-
-            coef_selecionados_2 = coef_2_oficial[
-                coef_2_oficial["modelo"]
-                == selecionado_oficial_2
-            ].copy()
-
-            coef_selecionados_2["Significativo (5%)"] = (
-                coef_selecionados_2["valor_p"] < 0.05
-            ).map({True: "Sim", False: "Não"})
-
-            st.dataframe(
-                coef_selecionados_2.round(6),
-                hide_index=True,
-                use_container_width=True,
-            )
-
-            st.markdown("#### Valores observados × ajustados")
-
-            ajustes_selecionados_2 = ajustes_2_oficial[
-                ajustes_2_oficial["modelo"]
-                == selecionado_oficial_2
-            ].copy()
-
-            ajustes_selecionados_2["date"] = pd.to_datetime(
-                ajustes_selecionados_2["date"]
-            )
-
-            serie_ajustes_2 = ajustes_selecionados_2[
-                ["date", "observado", "ajustado_em_amostra"]
-            ].melt(
-                id_vars="date",
-                var_name="Série",
-                value_name="Spread (p.p.)",
-            )
-
-            fig_ajustes_2 = px.line(
-                serie_ajustes_2,
-                x="date",
-                y="Spread (p.p.)",
-                color="Série",
-                title=(
-                    f"Modelo {selecionado_oficial_2} — "
-                    "ajuste dentro da amostra"
-                ),
-            )
-
-            st.plotly_chart(
-                fig_ajustes_2,
-                use_container_width=True,
-            )
-
-            st.caption(
-                "Os valores ajustados são estimativas dentro "
-                "da amostra. Não representam previsões "
-                "fora da amostra."
-            )
-
-            st.info(
-                "O Modelo 2A ainda não foi reestimado na "
-                "base oficial V1. Os diagnósticos apresentados "
-                "na seção histórica abaixo pertencem às "
-                "estimações anteriores e não devem ser "
-                "atribuídos aos modelos oficiais."
-            )
-
-        else:
-            st.warning(
-                "Arquivos oficiais dos Modelos 2B–2D "
-                "não encontrados."
-            )
-
-        st.divider()
-
-        st.markdown("### Resultados históricos — versões anteriores")
-
-        st.caption(
-            "Os resultados abaixo foram produzidos em "
-            "versões anteriores da base. São mantidos "
-            "para rastreabilidade metodológica e não "
-            "devem ser confundidos com a estimação oficial V1."
-        )
-
         st.markdown("#### Comparação das especificações")
 
         if resumos_2:
@@ -2446,10 +2105,10 @@ elif pagina == "Questões de Pesquisa":
             )
 
             st.warning(
-                "Diagnósticos referentes às estimações "
-                "históricas. Não extrapolar estes resultados "
-                "para a base oficial V1. Erros-padrão HAC "
-                "não corrigem problemas de especificação."
+                "As quatro especificações apresentam "
+                "Breusch-Pagan significativo e Breusch-Godfrey "
+                "de duas defasagens significativo. "
+                "Os erros-padrão HAC não eliminam esses problemas."
             )
 
         st.markdown("#### Coeficientes e significância")
@@ -2538,7 +2197,8 @@ elif pagina == "Questões de Pesquisa":
 
         st.caption(
             "Resultados da versão auditada do Modelo 3C. "
-            "Os regimes são estimados a partir dos juros do cartão PF. "
+            "A variável de estimação deve ser conferida nos metadados do Modelo 3C "
+            "(o script prioriza spread, com juros como alternativa). "
             "Sua interpretação competitiva depende da análise dos "
             "demais indicadores econômicos."
         )
@@ -2577,17 +2237,18 @@ elif pagina == "Questões de Pesquisa":
 
             dados_regimes = dados_regimes.sort_values("date")
 
-            nomes_regimes = {
-                0: "Regime 0 — Intermediário",
-                1: "Regime 1 — Elevado",
-                2: "Regime 2 — Baixo",
-            }
-
-            cores_regimes = {
-                0: "#E5A700",
-                1: "#D64545",
-                2: "#258B57",
-            }
+            # A numeração de estados é arbitrária: ordenar pelo juro observado
+            # evita atribuir significado econômico fixo aos IDs Markovianos.
+            medias_juros = (dados_regimes.groupby("regime_estimado")
+                            ["juros_cartao_pf_aa_pct"].mean().sort_values())
+            nomes_niveis = ["Baixo", "Intermediário", "Elevado"]
+            paleta_niveis = ["#258B57", "#E5A700", "#D64545"]
+            nomes_regimes = {int(reg): f"Regime {int(reg)} — {nomes_niveis[i]}"
+                             for i, reg in enumerate(medias_juros.index)}
+            cores_regimes = {int(reg): paleta_niveis[i]
+                             for i, reg in enumerate(medias_juros.index)}
+            st.caption("Rótulos baixo/intermediário/elevado definidos pela média de juros "
+                       "observada em cada estado; os IDs numéricos não têm ordem econômica intrínseca.")
 
             st.markdown("#### Linha do tempo dos regimes")
 
@@ -2884,6 +2545,69 @@ elif pagina == "Questões de Pesquisa":
                 use_container_width=True,
             )
 
+            st.markdown("#### Anatomia dos regimes competitivos")
+            st.caption("Comparações descritivas entre estados Markovianos; não representam efeitos causais.")
+            metricas_anatomia = {
+                "juros_cartao_pf_aa_pct": ("Juros do cartão (% a.a.)", 1),
+                "hhi_credito_0_1": ("HHI do crédito (0–1)", 1),
+                "cr5_credito": ("CR5 do crédito (%)", 100),
+                "share_fintechs": ("Participação das fintechs (%)", 100),
+                "inadimplencia_90d_pct": ("Inadimplência (%)", 1),
+            }
+            perfil_plot = perfil.copy()
+            # Confere se os perfis CSV e a série histórica usam a mesma rotulagem.
+            if all(f"Regime_{int(r)}" in perfil_plot.columns for r in medias_juros.index):
+                inconsistentes = []
+                if "juros_cartao_pf_aa_pct" in perfil_plot.index:
+                    for r in medias_juros.index:
+                        valor_csv = pd.to_numeric(perfil_plot.loc["juros_cartao_pf_aa_pct", f"Regime_{int(r)}"], errors="coerce")
+                        if pd.notna(valor_csv) and abs(valor_csv - medias_juros.loc[r]) > 0.5:
+                            inconsistentes.append(int(r))
+                if inconsistentes:
+                    st.warning("A numeração dos regimes no CSV de perfil difere da base histórica. "
+                               "Os gráficos de perfil foram omitidos para evitar comparações incorretas. "
+                               "Regenere os arquivos a partir da mesma execução do Modelo 3C.")
+                else:
+                    metrica_escolhida = st.selectbox(
+                        "Indicador para comparar", list(metricas_anatomia),
+                        format_func=lambda x: metricas_anatomia[x][0], key="metrica_anatomia")
+                    titulo_metrica, fator = metricas_anatomia[metrica_escolhida]
+                    if metrica_escolhida in perfil_plot.index:
+                        comparacao = pd.DataFrame([
+                            {"Regime": nomes_regimes[int(r)],
+                             "Valor": pd.to_numeric(perfil_plot.loc[metrica_escolhida, f"Regime_{int(r)}"], errors="coerce") * fator,
+                             "Cor": cores_regimes[int(r)]}
+                            for r in medias_juros.index
+                        ]).dropna(subset=["Valor"])
+                        if not comparacao.empty:
+                            fig_anatomia = px.bar(comparacao, x="Regime", y="Valor",
+                                                 color="Regime",
+                                                 color_discrete_map={row["Regime"]: row["Cor"] for _, row in comparacao.iterrows()},
+                                                 title=titulo_metrica, text_auto=".3f")
+                            fig_anatomia.update_layout(height=350, showlegend=False,
+                                                        margin=dict(l=10,r=10,t=55,b=15))
+                            st.plotly_chart(fig_anatomia, use_container_width=True)
+                    st.caption("HHI e CR5 são indicadores do mercado geral de crédito; "
+                               "a participação das fintechs depende da cobertura da base IFData.")
+            else:
+                st.info("Perfil econômico indisponível para os IDs presentes na base histórica.")
+
+            # Relação concentração-preço: cada ponto é um trimestre, não uma instituição.
+            if {"hhi_credito_0_1", "juros_cartao_pf_aa_pct", "regime_estimado", "date"}.issubset(dados_regimes.columns):
+                dispersao = dados_regimes.dropna(subset=["hhi_credito_0_1", "juros_cartao_pf_aa_pct"]).copy()
+                if not dispersao.empty:
+                    dispersao["Regime"] = dispersao["regime_estimado"].map(nomes_regimes)
+                    dispersao["Trimestre"] = dispersao["date"].dt.to_period("Q").astype(str)
+                    fig_disp = px.scatter(
+                        dispersao, x="hhi_credito_0_1", y="juros_cartao_pf_aa_pct",
+                        color="Regime", color_discrete_map={nomes_regimes[r]: c for r,c in cores_regimes.items()},
+                        hover_data=["Trimestre"],
+                        labels={"hhi_credito_0_1": "HHI do crédito", "juros_cartao_pf_aa_pct": "Juros (% a.a.)"},
+                        title="Concentração do crédito × juros, por regime")
+                    fig_disp.update_layout(height=410, margin=dict(l=10,r=10,t=55,b=15))
+                    st.plotly_chart(fig_disp, use_container_width=True)
+                    st.caption("Associação descritiva; diferenças temporais e risco podem afetar ambos os indicadores.")
+
             st.caption(
                 "HHI e CR5 referem-se à concentração do crédito "
                 "das instituições analisadas, não necessariamente "
@@ -2970,23 +2694,10 @@ elif pagina == "Questões de Pesquisa":
             / "modelo4E_previsao_metricas.csv"
         )
 
-        arquivo_competicao_4e = (
-            Path(__file__).resolve().parent
-            / "outputs_modelo4E_competicao"
-            / "previsoes_walk_forward.csv"
-        )
-
-        arquivo_metricas_competicao_4e = (
-            Path(__file__).resolve().parent
-            / "outputs_modelo4E_competicao"
-            / "metricas.csv"
-        )
-
-        tab_juros, tab_4e, tab_futuro, tab_competicao = st.tabs([
+        tab_juros, tab_4e, tab_futuro = st.tabs([
             "Markov–Neural",
             "Validação das métricas",
             "Previsões do Modelo 4E",
-            "Modelo 4E — Competição",
         ])
 
         with tab_juros:
@@ -3159,141 +2870,9 @@ elif pagina == "Questões de Pesquisa":
 
         painel_historico_v13(arquivo_futuro)
 
-        with tab_competicao:
-            st.markdown(
-                "#### Modelo 4E — Contribuição incremental da competição"
-            )
-
-            st.caption(
-                "Experimento V2: referência Markov compartilhada, "
-                "previsões walk-forward e comparação com amostra alinhada."
-            )
-
-            pasta_v2 = PROJECT_ROOT / "outputs_modelo4E_competicao_v2"
-
-            caminho_previsoes = pasta_v2 / "previsoes_walk_forward.csv"
-            caminho_metricas = pasta_v2 / "metricas.csv"
-            caminho_validacao = (
-                pasta_v2
-                / "validacao_estatistica"
-                / "resumo_validacao.csv"
-            )
-
-            arquivos_v2 = [
-                caminho_previsoes,
-                caminho_metricas,
-                caminho_validacao
-            ]
-
-            if all(caminho.exists() for caminho in arquivos_v2):
-
-                previsoes_v2 = pd.read_csv(caminho_previsoes)
-                metricas_v2 = pd.read_csv(caminho_metricas)
-                validacao_v2 = pd.read_csv(caminho_validacao)
-
-                st.markdown("##### Desempenho dos modelos")
-
-                st.dataframe(
-                    metricas_v2,
-                    use_container_width=True,
-                    hide_index=True
-                )
-
-                st.markdown("##### Previsões versus valores realizados")
-
-                nomes_modelos = {
-                    "realizado": "Realizado",
-                    "persistencia": "Persistência",
-                    "mlp_convencional": "MLP convencional",
-                    "mlp_hibrido": "Markov-Neural",
-                    "mlp_hibrido_alinhado": "Markov-Neural alinhado",
-                    "modelo4E_competicao": "Markov-Neural + competição"
-                }
-
-                colunas_grafico = [
-                    coluna for coluna in nomes_modelos
-                    if coluna in previsoes_v2.columns
-                ]
-
-                grafico_v2 = previsoes_v2.set_index("alvo")[
-                    colunas_grafico
-                ].rename(columns=nomes_modelos)
-
-                st.line_chart(grafico_v2)
-
-                st.markdown("##### Comparação por trimestre")
-
-                st.dataframe(
-                    previsoes_v2,
-                    use_container_width=True,
-                    hide_index=True
-                )
-
-                st.markdown("##### Validação estatística")
-
-                st.dataframe(
-                    validacao_v2,
-                    use_container_width=True,
-                    hide_index=True
-                )
-
-                controle = metricas_v2.loc[
-                    metricas_v2["modelo"] == "mlp_hibrido_alinhado"
-                ]
-
-                competicao = metricas_v2.loc[
-                    metricas_v2["modelo"] == "modelo4E_competicao"
-                ]
-
-                if len(controle) == 1 and len(competicao) == 1:
-
-                    mae_controle = float(controle["MAE"].iloc[0])
-                    mae_competicao = float(competicao["MAE"].iloc[0])
-
-                    variacao = (
-                        (mae_competicao / mae_controle - 1) * 100
-                    )
-
-                    c1, c2, c3 = st.columns(3)
-
-                    c1.metric(
-                        "MAE — híbrido alinhado",
-                        f"{mae_controle:.4f}"
-                    )
-
-                    c2.metric(
-                        "MAE — competição",
-                        f"{mae_competicao:.4f}"
-                    )
-
-                    c3.metric(
-                        "Variação do MAE",
-                        f"{variacao:+.2f}%"
-                    )
-
-                st.info(
-                    "Na avaliação de 15 trimestres, a inclusão "
-                    "dos indicadores de competição não demonstrou "
-                    "melhoria estatisticamente significativa. "
-                    "Consulte os resultados HAC e bootstrap "
-                    "na tabela de validação."
-                )
-
-                st.caption(
-                    "Resultados retrospectivos. A defasagem trimestral "
-                    "não substitui uma auditoria das datas efetivas "
-                    "de publicação dos indicadores de competição."
-                )
-
-            else:
-
-                st.warning(
-                    "Arquivos V2 do Modelo 4E não encontrados."
-                )
-
-                for caminho in arquivos_v2:
-                    if not caminho.exists():
-                        st.write(f"Ausente: {caminho}")
+# ============================================================
+# 12. DICIONÁRIO
+# ============================================================
 
 elif pagina == "Dicionário":
     st.subheader("Dicionário de indicadores")
@@ -3303,67 +2882,6 @@ elif pagina == "Dicionário":
     else:
         st.caption(f"{len(dicionario)} métricas cadastradas no arquivo do pipeline.")
         dic = dicionario.copy()
-
-        # ETAPA 199 — Variáveis da validação experimental.
-        # Não são adicionadas às bases de treinamento.
-        _extras_199 = [
-            {
-                "metrica": "pib_crescimento_tri_pct",
-                "nome_amigavel": "Crescimento trimestral real do PIB",
-                "grupo": "Macroeconomia",
-                "classificacao": "Validação experimental",
-                "descricao": "Variação trimestral real do Produto Interno Bruto.",
-                "fonte": "IBGE — base experimental do Modelo 4",
-                "referencia_fonte": "outputs_modelo4_pib/base_modelo4_pib_validacao.csv",
-                "construcao": "Série trimestral utilizada na validação experimental.",
-                "unidade": "%",
-                "frequencia": "Trimestral",
-                "uso_modelos": "Validação experimental",
-            },
-            {
-                "metrica": "pib_crescimento_lag1",
-                "nome_amigavel": "Crescimento do PIB defasado",
-                "grupo": "Macroeconomia",
-                "classificacao": "Validação experimental",
-                "descricao": "Crescimento trimestral real do PIB com defasagem de um trimestre.",
-                "fonte": "IBGE — transformação experimental",
-                "referencia_fonte": "outputs_modelo4_pib/base_modelo4_pib_validacao.csv",
-                "construcao": "Defasagem trimestral da variável de crescimento do PIB.",
-                "unidade": "%",
-                "frequencia": "Trimestral",
-                "uso_modelos": "Validação experimental",
-            },
-            {
-                "metrica": "periodo_eleitoral",
-                "nome_amigavel": "Período eleitoral presidencial",
-                "grupo": "Política e instituições",
-                "classificacao": "Validação experimental",
-                "descricao": "Indicador binário dos trimestres classificados como eleitorais presidenciais.",
-                "fonte": "Calendário eleitoral — classificação experimental",
-                "referencia_fonte": "outputs_modelo4_pib/base_modelo4_pib_validacao.csv",
-                "construcao": "Indicador binário: 1 para trimestre eleitoral, 0 para demais períodos.",
-                "unidade": "0/1",
-                "frequencia": "Trimestral",
-                "uso_modelos": "Validação experimental",
-            },
-        ]
-
-        _existentes_199 = (
-            set(dic["metrica"].astype(str))
-            if "metrica" in dic.columns
-            else set()
-        )
-
-        _novos_199 = [
-            item for item in _extras_199
-            if item["metrica"] not in _existentes_199
-        ]
-
-        if _novos_199:
-            dic = pd.concat(
-                [dic, pd.DataFrame(_novos_199)],
-                ignore_index=True,
-            )
 
         c1, c2, c3 = st.columns(3)
         with c1:
